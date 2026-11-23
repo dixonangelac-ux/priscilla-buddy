@@ -1,0 +1,17 @@
+{
+  "name": "Priscilla's Buddy",
+  "short_name": "Buddy",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f4ff",
+  "theme_color": "#7469e5",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
