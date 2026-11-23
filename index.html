@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7469e5"><meta name="color-scheme" content="light">
+<title>Priscilla's Buddy</title><link rel="manifest" href="./manifest.webmanifest">
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#272443;background:#f6f4ff}
+*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer;touch-action:manipulation;border:0;border-radius:16px;padding:13px;background:#f1ecff;color:#333066;font-weight:650}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #7664db;outline-offset:2px}
+header{background:linear-gradient(110deg,#7469e5,#d878bd);color:white;padding:22px 18px 26px;border-radius:0 0 28px 28px}header>div{max-width:850px;margin:auto}header h1{margin:4px 0;font-size:clamp(25px,5vw,36px)}header small{letter-spacing:.1em;font-weight:700}
+main{max-width:850px;margin:auto;padding:13px}.nav{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.nav button{padding:12px 3px;font-size:13px;background:white}.nav button.active{background:#685fd7;color:white}
+.panel{background:white;padding:18px;margin-top:14px;border-radius:22px;box-shadow:0 3px 18px #342a7010}.panel h2{margin:0 0 11px;font-size:21px}.muted{color:#716f85}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin-top:14px}.task{min-height:131px;background:#f1edff;border:2px solid transparent;font-size:16px}.task .emoji{display:block;font-size:34px;margin-bottom:7px}.task small{font-weight:500;font-size:12px;display:block;margin-top:5px}.task.done{background:#dbf8eb;border-color:#46bf95}.progress{height:15px;overflow:hidden;background:#eae6f5;border-radius:20px}.bar{height:100%;width:0;background:#48c49d;transition:width .2s}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row button{flex:1}.primary{background:#685fd7;color:white}.outline{border:1px solid #ccc6eb;background:white}.event{background:#faf2ff;border-left:5px solid #d478b8;padding:12px;border-radius:10px;margin:9px 0}.big{font-size:44px}.center{text-align:center}label{font-weight:700;display:block;margin-top:12px}input,select{width:100%;border:1px solid #cfcae3;border-radius:12px;padding:12px;margin-top:5px;background:white}input[type=file]{padding:8px}.night{background:#191d43;color:white;text-align:center;padding:32px 16px;min-height:340px;display:flex;flex-direction:column;justify-content:center}.night .muted{color:#c8c9e1}.timer{font-size:46px;font-weight:800;font-variant-numeric:tabular-nums}.footer{text-align:center;color:#77738a;font-size:12px;margin:22px 0}.settings-row{display:flex;align-items:center;gap:6px;margin:9px 0;padding:8px;background:#faf9ff;border-radius:12px}.settings-row span{flex:1;min-width:0;overflow-wrap:anywhere}.settings-row button{flex:0}.hidden{display:none!important}
+@media(min-width:650px){.cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<header id="header"><div><small>🌈 MY LITTLE COMPANION</small><h1>Hi, Priscilla! ✨</h1><span id="todayDate"></span></div></header>
+<main><div class="nav" id="tabs"><button class="active" data-tab="day">☀️<br>My Day</button><button data-tab="routines">✅<br>Routines</button><button data-tab="treasure">⭐<br>Treasures</button><button data-tab="sleep">🌙<br>Sleep</button></div>
+<div id="screen"></div><div class="footer">Saved on this tablet · <button id="parentButton">⚙️ Parent settings</button></div></main>
+<script>
+(function(){
+'use strict';
+var KEY='priscilla-buddy-v1';
+var defaults={pin:'2468',stars:0,done:{},routines:{Morning:[['👗','Get dressed'],['🪥','Brush my teeth'],['🪮','Brush my hair'],['👟','Put on shoes']],Afternoon:[['🧼','Wash hands'],['🧸','Tidy toys'],['📚','Reading time']],Bedtime:[['🧸','Put toys away'],['🪥','Brush my teeth'],['📖','Story time'],['🛏️','Get cozy in bed']]},events:[],wake:'07:00',bed:'20:00'};
+function clone(x){return JSON.parse(JSON.stringify(x))}
+function read(){try{var d=JSON.parse(localStorage.getItem(KEY));if(d&&d.routines&&d.events&&d.done)return Object.assign(clone(defaults),d)}catch(e){}return clone(defaults)}
+var state=read(),tab='day',routine='Morning',parent=false,dim=false,timerEnd=0;
+var screen=document.getElementById('screen');
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){alert('Storage unavailable. Export a backup if possible.')}}
+function escapeHtml(x){return String(x).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function dateKey(){var d=new Date();return [d.getFullYear(),d.getMonth()+1,d.getDate()].join('-')}
+function taskKey(r,i){return dateKey()+':'+r+':'+i}
+function isDone(r,i){return !!state.done[taskKey(r,i)]}
+function count(r){return state.routines[r].filter(function(_,i){return isDone(r,i)}).length}
+function summary(r){var n=count(r),total=state.routines[r].length;return '<p>'+n+' of '+total+' completed '+(n===total&&total?'🎉':'')+'</p><div class="progress"><div class="bar" style="width:'+(total?n/total*100:0)+'%"></div></div>'}
+function tasks(r){return '<div class="cards">'+state.routines[r].map(function(item,i){return '<button class="task '+(isDone(r,i)?'done':'')+'" data-action="task" data-r="'+escapeHtml(r)+'" data-i="'+i+'"><span class="emoji">'+escapeHtml(item[0])+'</span>'+escapeHtml(item[1])+'<small>'+(isDone(r,i)?'✓ Done!':'Tap when done')+'</small></button>'}).join('')+'</div>'}
+function currentRoutine(){var h=new Date().getHours();return h<12?'Morning':h<18?'Afternoon':'Bedtime'}
+function todayEvents(){return state.events.filter(function(x){return x.day===new Date().getDay()})}
+function render(){
+document.getElementById('todayDate').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
+document.getElementById('header').style.display=dim&&tab==='sleep'&&!parent?'none':'';
+document.querySelectorAll('[data-tab]').forEach(function(b){b.classList.toggle('active',b.dataset.tab===tab)});
+if(parent){screen.innerHTML=parentView();return}
+if(tab==='day'){var r=currentRoutine(),events=todayEvents();screen.innerHTML='<section class="panel"><h2>🌟 Today’s adventure</h2><p class="muted">One little step at a time!</p><h2>'+r+' routine</h2>'+summary(r)+tasks(r)+'</section><section class="panel"><h2>📅 Today’s plans</h2>'+(events.length?events.map(function(e){return '<div class="event"><b>'+escapeHtml(e.name)+'</b><div class="muted">'+escapeHtml(e.time)+'</div></div>'}).join(''):'<p>No special activities today. Make your own adventure!</p>')+'</section>'}
+if(tab==='routines')screen.innerHTML='<section class="panel"><h2>My routines</h2><div class="row">'+Object.keys(state.routines).map(function(r){return '<button class="'+(routine===r?'primary':'outline')+'" data-action="routine" data-r="'+escapeHtml(r)+'">'+escapeHtml(r)+'</button>'}).join('')+'</div>'+summary(routine)+tasks(routine)+'</section>';
+if(tab==='treasure')screen.innerHTML='<section class="panel center"><div class="big">🏆</div><h2>My treasure chest</h2><div class="big">⭐ '+state.stars+'</div><p>Earn one star for each task you finish!</p><p class="muted">Your stars stay with you tomorrow.</p></section>';
+if(tab==='sleep')screen.innerHTML='<section class="panel night"><div class="big">🌙 ✨</div><h2>Sweet dreams, Priscilla!</h2><div class="big" id="clock"></div><p class="muted">Wake-up goal: '+escapeHtml(state.wake)+' · Bedtime: '+escapeHtml(state.bed)+'</p><button data-action="dim" class="outline">'+(dim?'Brighten screen':'Dim screen')+'</button></section><section class="panel"><h2>⏳ Little timer</h2><div class="timer" id="timer">Ready!</div><div class="row"><button data-action="timer" data-min="2">2 min</button><button data-action="timer" data-min="5">5 min</button><button data-action="timer" data-min="10">10 min</button><button data-action="timer" data-min="0">Stop</button></div></section>';
+updateClock();
+}
+function parentView(){
+var days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+return '<section class="panel"><h2>⚙️ Parent settings</h2><p class="muted">Settings stay in this browser. Export backups periodically.</p><label for="editRoutine">Choose routine</label><select id="editRoutine">'+Object.keys(state.routines).map(function(r){return '<option '+(r===routine?'selected':'')+'>'+escapeHtml(r)+'</option>'}).join('')+'</select>'+state.routines[routine].map(function(t,i){return '<div class="settings-row"><span>'+escapeHtml(t[0])+' '+escapeHtml(t[1])+'</span><button data-action="removeTask" data-i="'+i+'">Remove</button></div>'}).join('')+'<label for="newEmoji">New task emoji</label><input id="newEmoji" value="⭐" maxlength="8"><label for="newTask">New task</label><input id="newTask" placeholder="e.g. Feed the fish"><button class="primary" data-action="addTask">Add task</button></section>'+
+'<section class="panel"><h2>📅 Weekly activities</h2>'+state.events.map(function(e,i){return '<div class="settings-row"><span>'+days[e.day]+' · '+escapeHtml(e.time)+' · '+escapeHtml(e.name)+'</span><button data-action="removeEvent" data-i="'+i+'">Remove</button></div>'}).join('')+'<label for="newDay">Day</label><select id="newDay">'+days.map(function(d,i){return '<option value="'+i+'">'+d+'</option>'}).join('')+'</select><label for="newTime">Time</label><input id="newTime" placeholder="4:30 PM"><label for="newEvent">Activity</label><input id="newEvent" placeholder="Swim class"><button class="primary" data-action="addEvent">Add activity</button></section>'+
+'<section class="panel"><h2>🌙 Sleep preferences</h2><label for="wake">Wake-up goal</label><input id="wake" type="time" value="'+escapeHtml(state.wake)+'"><label for="bed">Bedtime</label><input id="bed" type="time" value="'+escapeHtml(state.bed)+'"><button class="primary" data-action="saveTimes">Save times</button><h2 style="margin-top:24px">🔐 Privacy & backup</h2><label for="pin">Change parent PIN</label><input id="pin" type="password" inputmode="numeric" placeholder="New PIN (4+ digits)"><button data-action="changePin">Change PIN</button><p class="row"><button data-action="export">Export backup</button><button data-action="import">Import backup</button></p><input id="importFile" type="file" class="hidden" accept="application/json"><button data-action="resetDay" class="outline">Clear today’s checkmarks</button><p><button data-action="closeParent" class="primary">Back to Buddy</button></p></section>';
+}
+document.addEventListener('click',function(e){
+var b=e.target.closest('button');if(!b)return;
+if(b.id==='parentButton'){if(parent){parent=false;render();return}var p=prompt('Parent PIN');if(p===state.pin){parent=true;render()}else if(p!==null)alert('Incorrect PIN');return}
+if(b.dataset.tab){tab=b.dataset.tab;render();return}
+var a=b.dataset.action,r=b.dataset.r,i=Number(b.dataset.i);
+if(a==='task'){var key=taskKey(r,i);if(state.done[key]){delete state.done[key];state.stars=Math.max(0,state.stars-1)}else{state.done[key]=true;state.stars++}save();render()}
+if(a==='routine'){routine=r;render()}
+if(a==='dim'){dim=!dim;render()}
+if(a==='timer'){var mins=Number(b.dataset.min);timerEnd=mins?Date.now()+mins*60000:0;updateClock()}
+if(a==='removeTask'){state.routines[routine].splice(i,1);save();render()}
+if(a==='addTask'){var name=document.getElementById('newTask').value.trim(),emoji=document.getElementById('newEmoji').value.trim()||'⭐';if(name){state.routines[routine].push([emoji,name]);save();render()}}
+if(a==='removeEvent'){state.events.splice(i,1);save();render()}
+if(a==='addEvent'){var eventName=document.getElementById('newEvent').value.trim();if(eventName){state.events.push({day:Number(document.getElementById('newDay').value),time:document.getElementById('newTime').value.trim()||'Anytime',name:eventName});save();render()}}
+if(a==='saveTimes'){state.wake=document.getElementById('wake').value;state.bed=document.getElementById('bed').value;save();alert('Saved')}
+if(a==='changePin'){var pin=document.getElementById('pin').value;if(/^\d{4,}$/.test(pin)){state.pin=pin;save();alert('PIN updated')}else alert('Enter at least 4 digits')}
+if(a==='export'){var blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='buddy-backup.json';document.body.appendChild(link);link.click();link.remove();setTimeout(function(){URL.revokeObjectURL(url)},3000)}
+if(a==='import')document.getElementById('importFile').click();
+if(a==='resetDay'&&confirm('Clear today’s checkmarks? Stars will stay.')){Object.keys(state.done).forEach(function(k){if(k.indexOf(dateKey()+':')===0)delete state.done[k]});save();render()}
+if(a==='closeParent'){parent=false;render()}
+});
+document.addEventListener('change',function(e){if(e.target.id==='editRoutine'){routine=e.target.value;render()}if(e.target.id==='importFile'){var file=e.target.files&&e.target.files[0];if(!file)return;file.text().then(function(t){var data=JSON.parse(t);if(!data.routines||!Array.isArray(data.events)||!data.done||typeof data.stars!=='number')throw Error('Invalid backup');if(confirm('Replace current Buddy settings and progress with this backup?')){state=data;save();render()}}).catch(function(){alert('Could not import backup')})}});
+function updateClock(){var clock=document.getElementById('clock');if(clock)clock.textContent=new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});var timer=document.getElementById('timer');if(timer){if(!timerEnd){timer.textContent='Ready!'}else{var sec=Math.max(0,Math.ceil((timerEnd-Date.now())/1000));timer.textContent=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');if(sec===0){timerEnd=0;alert('Timer finished! ⭐')}}}}
+setInterval(updateClock,1000);
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(function(){})}
+render();
+})();
+</script></body></html>
