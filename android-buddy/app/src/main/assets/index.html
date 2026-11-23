@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light"><title>Priscilla's Buddy</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#25243c;background:#f7f4ff}
+*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{border:0;border-radius:14px;background:#efebff;color:#38316c;padding:12px;min-height:46px;font-weight:700}button:active{opacity:.7}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #5445b3;outline-offset:2px}input,select{width:100%;background:white;border:1px solid #c4bfdc;border-radius:12px;padding:12px;min-height:46px;margin-top:5px}label{font-size:14px;font-weight:700;display:block;margin:10px 0 5px}
+header{background:linear-gradient(115deg,#7668df,#d476b8);color:white;padding:24px 18px 25px;border-radius:0 0 26px 26px}header div{max-width:850px;margin:auto}header h1{margin:4px 0 0;font-size:29px}header p{margin:3px 0}main{max-width:850px;margin:auto;padding:14px}nav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}nav button{font-size:13px;padding:10px 3px;background:white}nav button.active{background:#6558c9;color:white}.panel{background:white;padding:18px;border-radius:22px;margin:12px 0;box-shadow:0 3px 15px #3a28700c}.panel h2{font-size:20px;margin:0 0 12px}.muted{color:#77738c;font-size:14px}.btnprimary{background:#6558c9;color:white}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row button{flex:1}.tilegrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.tile{min-height:122px;background:#f3efff}.tile .emoji{display:block;font-size:32px}.tile.done{background:#dff7eb;border:2px solid #52bd94}.big{font-size:37px}.center{text-align:center}.event{padding:13px;border-left:5px solid #cf82c8;background:#faf4ff;border-radius:11px;margin:8px 0}.event strong{display:block}.tag{display:inline-block;background:#e6f5ed;padding:3px 8px;border-radius:10px;font-size:11px}.small{font-size:12px}.danger{background:#ffe6e7;color:#942d39}.sep{border-top:1px solid #ece8f5;margin:15px 0}.hidden{display:none!important}.footer{text-align:center;font-size:12px;color:#76718c;padding:20px}.warn{background:#fff0dd;border-radius:10px;padding:11px;font-size:13px}.night{background:#20234d;color:white;text-align:center;padding:30px}.night .muted{color:#c7c8dc}.clock{font-size:42px;font-variant-numeric:tabular-nums}.notice{background:#f4f1ff;padding:11px;border-radius:12px}.progress{height:12px;border-radius:12px;background:#eeebf7;overflow:hidden}.progress>div{height:100%;background:#5ccca0}
+@media(min-width:650px){.tilegrid{grid-template-columns:repeat(3,1fr)}}
+</style></head><body>
+<header><div><small>🌈 PRISCILLA'S BUDDY</small><h1 id="greeting">Hello, Captain P! ✨</h1><p id="date"></p></div></header>
+<main><nav id="tabs"></nav><section id="view"></section><div class="footer">Private, offline-first Buddy · Parent controls are PIN-protected</div></main>
+<script>
+(()=>{'use strict';
+const api=window.BuddyNative;
+const base={version:2,profile:'child',stars:0,done:{},routines:{Morning:[['👗','Get dressed'],['🪥','Brush my teeth'],['🪮','Brush hair'],['👟','Put on shoes']],Afternoon:[['🧼','Wash hands'],['🧸','Tidy toys'],['📖','Read a book']],Bedtime:[['🧸','Tidy toys'],['🪥','Brush teeth'],['📚','Story time'],['🛏️','Get cozy']]},events:[],wake:'07:00',bed:'20:00',theme:'colorful',lastSync:null};
+let data;try{data=Object.assign({},base,JSON.parse(api.read()||'{}'))}catch(e){data={...base}}
+if(!data.events||!Array.isArray(data.events))data.events=[];
+if(!data.routines||!data.done)data={...base};
+let tab='day',routine='Morning',parentUnlocked=false,editing=null,selectedDate=localDate(new Date()),timerEnd=0;
+window.__buddyParentUnlocked=false;
+const el=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+const dateLabel=s=>new Date(s+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function localDate(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
+function persist(){if(!api.save(JSON.stringify(data)))alert('Unable to save changes. Please check available device storage.')}
+function ui(){return data.profile==='parent'?'parent':'child'}
+function actualParent(){return parentUnlocked&&data.profile==='parent'}
+function timeNow(){return new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}
+function currentRoutine(){let h=new Date().getHours();return h<12?'Morning':h<18?'Afternoon':'Bedtime'}
+function eventsOn(date){let day=new Date(date+'T12:00:00').getDay();return data.events.filter(e=>{
+if(e.deleted||e.visibility==='parent'&&!actualParent())return false;
+if(e.type==='once')return e.date===date;
+if(e.type==='weekly'&&e.weekday===day&&date>=e.startDate&&(!e.until||date<=e.until))return !(e.exceptions||[]).includes(date);
+return false;
+}).sort((a,b)=>(a.time||'').localeCompare(b.time||''))}
+function nav(){let parent=actualParent();let tabs=parent?[['calendar','📅','Calendar'],['routines','✅','Routines'],['manage','⚙️','Manage'],['devices','🔐','Security']]:[['day','☀️','My Day'],['calendar','📅','Calendar'],['treasure','⭐','Treasures'],['sleep','🌙','Sleep']];
+if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];
+el('tabs').innerHTML=tabs.map(x=>'<button class="'+(tab===x[0]?'active':'')+'" data-act="tab" data-tab="'+x[0]+'">'+x[1]+'<br>'+x[2]+'</button>').join('')}
+function eventLine(e){let editable=actualParent()||e.owner==='child';return '<div class="event"><strong>'+esc(e.icon||'🎉')+' '+esc(e.title)+'</strong><span class="muted">'+esc(e.time||'All day')+' · '+(e.type==='weekly'?'Weekly':'One time')+'</span> '+(e.owner==='child'?'<span class="tag">Added by P</span>':'')+(editable?'<div class="row" style="margin-top:6px"><button data-act="edit" data-id="'+esc(e.id)+'">Edit</button>'+(e.type==='weekly'?'<button data-act="skip" data-id="'+esc(e.id)+'">Skip this date</button>':'')+'</div>':'')+'</div>'}
+function calendar(){let es=eventsOn(selectedDate);return '<div class="panel"><h2>📅 My Adventures</h2><label for="datePick">Choose a day</label><input type="date" id="datePick" value="'+esc(selectedDate)+'"><div class="row" style="margin-top:10px"><button data-act="prev">◀ Previous</button><button data-act="today">Today</button><button data-act="next">Next ▶</button></div><h2 style="margin-top:20px">'+esc(dateLabel(selectedDate))+'</h2>'+(es.length?es.map(eventLine).join(''):'<p class="muted">Nothing planned yet. Want to add something fun?</p>')+'<button class="btnprimary" data-act="add">＋ Add an activity</button></div>'}
+function routineCards(r){let tasks=data.routines[r]||[],n=tasks.filter((_,i)=>data.done[localDate(new Date())+':'+r+':'+i]).length;return '<p class="muted">'+n+' of '+tasks.length+' completed</p><div class="progress"><div style="width:'+(tasks.length?100*n/tasks.length:0)+'%"></div></div><div class="tilegrid" style="margin-top:12px">'+tasks.map((t,i)=>{let done=!!data.done[localDate(new Date())+':'+r+':'+i];return '<button class="tile '+(done?'done':'')+'" data-act="task" data-r="'+esc(r)+'" data-i="'+i+'"><span class="emoji">'+esc(t[0])+'</span>'+esc(t[1])+'<div class="small">'+(done?'✅ Finished!':'Tap when finished')+'</div></button>'}).join('')+'</div>'}
+function day(){let r=currentRoutine();return '<div class="panel"><h2>🌟 Today’s Adventure</h2><p>Hi Priscilla! You can do amazing things!</p><h2>'+r+' routine</h2>'+routineCards(r)+'</div><div class="panel"><h2>Coming up today</h2>'+(eventsOn(localDate(new Date())).map(eventLine).join('')||'<p class="muted">A day full of possibilities!</p>')+'<button data-act="goCalendar">See calendar</button></div>'}
+function treasure(){return '<div class="panel center"><div class="big">🏆✨</div><h2>My Treasure Chest</h2><div class="big">⭐ '+data.stars+'</div><p>Finish a task to earn a star!</p></div>'}
+function sleep(){return '<div class="panel night"><div class="big">🌙</div><h2>Good night, Priscilla</h2><div class="clock" id="clock">'+timeNow()+'</div><p class="muted">Wake-up goal: '+esc(data.wake)+' · Bedtime: '+esc(data.bed)+'</p></div><div class="panel"><h2>⏳ Little timer</h2><p class="big" id="timerDisplay">Ready!</p><div class="row">'+[2,5,10,0].map(n=>'<button data-act="timer" data-min="'+n+'">'+(n?n+' min':'Stop')+'</button>').join('')+'</div><p class="muted">The wake-up goal is informational, not a screen lock.</p></div>'}
+function routinesManage(){return '<div class="panel"><h2>✅ Manage routines</h2><div class="row">'+Object.keys(data.routines).map(r=>'<button data-act="selectRoutine" data-r="'+r+'">'+r+'</button>').join('')+'</div><h2 style="margin-top:16px">'+routine+'</h2>'+data.routines[routine].map((t,i)=>'<div class="event"><strong>'+esc(t[0])+' '+esc(t[1])+'</strong><button data-act="deleteTask" data-i="'+i+'">Remove</button></div>').join('')+'<label>Task description<input id="taskTitle" placeholder="Feed the fish"></label><label>Emoji<input id="taskEmoji" value="⭐" maxlength="8"></label><button class="btnprimary" data-act="addTask">Add routine task</button></div>'}
+function manage(){return '<div class="panel"><h2>⚙️ Parent settings</h2><label>Wake-up goal<input id="wake" type="time" value="'+esc(data.wake)+'"></label><label>Bedtime<input id="bed" type="time" value="'+esc(data.bed)+'"></label><button data-act="saveSleep">Save sleep times</button><div class="sep"></div><h2>All activities</h2><p class="muted">Create parent-managed events or let Priscilla manage her own events.</p>'+data.events.filter(e=>!e.deleted).map(e=>'<div class="event"><strong>'+esc(e.title)+'</strong><span class="small">'+esc(e.type==='once'?e.date:days[e.weekday]+' weekly')+'</span><div class="row"><button data-act="edit" data-id="'+esc(e.id)+'">Edit</button><button data-act="delete" data-id="'+esc(e.id)+'" class="danger">Delete</button></div></div>').join('')+'<button class="btnprimary" data-act="add">Add calendar event</button></div>'}
+function security(){return '<div class="panel"><h2>🔐 Device & privacy</h2><p>This installation stores its own encrypted information locally. Other devices do not sync yet.</p><div class="warn">Parent PIN protects the parent interface, but it does not replace Android device-level kiosk restrictions or account authentication. The app can still be exited through Android system controls.</div><label>Current PIN<input id="oldPin" type="password" inputmode="numeric"></label><label>New PIN (6–12 digits)<input id="newPin" type="password" inputmode="numeric"></label><button data-act="changePin">Change PIN</button><div class="sep"></div><button data-act="childMode">Switch to child mode</button><button data-act="exitDevice">Exit Buddy to Android Home</button></div>'}
+function form(){let e=editing||{title:'',icon:'🎉',type:'once',date:selectedDate,time:'',weekday:new Date(selectedDate+'T12:00:00').getDay(),startDate:selectedDate,until:'',owner:actualParent()?'parent':'child',visibility:'child',exceptions:[]};return '<div class="panel"><h2>'+(editing?'Edit':'New')+' activity</h2><label>What is happening?<input id="fTitle" maxlength="90" value="'+esc(e.title)+'" placeholder="Tilly’s birthday party"></label><label>Picture or emoji<input id="fIcon" maxlength="8" value="'+esc(e.icon||'🎉')+'"></label><label>Time (optional)<input type="time" id="fTime" value="'+esc(e.time||'')+'"></label><label>Repeats<select id="fType"><option value="once" '+(e.type==='once'?'selected':'')+'>One-time event</option><option value="weekly" '+(e.type==='weekly'?'selected':'')+'>Every week</option></select></label><label>Date (or recurring start date)<input id="fDate" type="date" value="'+esc(e.type==='once'?e.date:e.startDate)+'"></label><label>Day of week for weekly event<select id="fWeekday">'+days.map((d,i)=>'<option value="'+i+'" '+(e.weekday===i?'selected':'')+'>'+d+'</option>').join('')+'</select></label><label>Recurring end date (optional)<input id="fUntil" type="date" value="'+esc(e.until||'')+'"></label>'+(actualParent()?'<label>Child editing<select id="fOwner"><option value="parent" '+(e.owner==='parent'?'selected':'')+'>Parent-managed (read only to child)</option><option value="child" '+(e.owner==='child'?'selected':'')+'>Priscilla can edit</option></select></label>':'')+'<div class="row" style="margin-top:14px"><button class="btnprimary" data-act="saveEvent">Save activity</button><button data-act="cancel">Cancel</button></div></div>'}
+function enter(){return '<div class="panel center"><div class="big">🔐</div><h2>Parent access</h2><p class="muted">Enter your parent PIN to manage Buddy.</p><input id="enteredPin" type="password" inputmode="numeric" maxlength="12" placeholder="Parent PIN"><p id="loginError" class="muted"></p><div class="row"><button class="btnprimary" data-act="login">Unlock</button><button data-act="cancelLogin">Back</button></div></div>'}
+function setup(){return '<div class="panel"><h2>Welcome to Buddy!</h2><p>A grown-up needs to set a parent PIN before Priscilla uses this device.</p><label>New parent PIN (6–12 digits)<input id="setupPin" type="password" inputmode="numeric" maxlength="12"></label><label>Confirm PIN<input id="setupConfirm" type="password" inputmode="numeric" maxlength="12"></label><button class="btnprimary" data-act="setup">Create PIN</button><p class="muted">Each device needs its own setup for now. Keep this PIN private.</p></div>'}
+let loginScreen=false;
+function render(){el('date').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});el('greeting').textContent=actualParent()?'Buddy Parent Dashboard':'Hi, Priscilla! ✨';
+if(!api.hasPin()){el('tabs').innerHTML='';el('view').innerHTML=setup();return}
+if(loginScreen){el('tabs').innerHTML='';el('view').innerHTML=enter();return}
+nav();let content=editing!==null?form():({day,calendar,treasure,sleep,routines:routinesManage,manage,devices:security}[tab]||day)();
+el('view').innerHTML=content+(actualParent()?'':'<div class="panel center"><button data-act="parentLogin">🔐 Parent access</button></div>');tick()}
+function taskDone(r,i){let k=localDate(new Date())+':'+r+':'+i;if(data.done[k]){delete data.done[k];data.stars=Math.max(0,data.stars-1)}else{data.done[k]=true;data.stars++}persist()}
+function uid(){return 'e'+Date.now()+'-'+Math.random().toString(36).slice(2,9)}
+function lookup(id){return data.events.find(e=>e.id===id)}
+function saveEvent(){let title=el('fTitle').value.trim(),type=el('fType').value,date=el('fDate').value,until=el('fUntil').value;if(!title||!date){alert('Choose a name and date.');return}if(type==='weekly'&&until&&until<date){alert('End date must be after start date.');return}
+let owner=actualParent()?el('fOwner').value:'child';
+let entry={id:editing?.id||uid(),title,icon:el('fIcon').value||'🎉',type,date:type==='once'?date:null,startDate:date,weekday:+el('fWeekday').value,time:el('fTime').value,until:type==='weekly'?until:'',owner,visibility:'child',exceptions:editing?.exceptions||[],updatedAt:new Date().toISOString()};
+if(editing){if(!actualParent()&&editing.owner!=='child')return;data.events=data.events.map(e=>e.id===editing.id?entry:e)}else data.events.push(entry);
+selectedDate=date;editing=null;persist();render()}
+function edit(id){let e=lookup(id);if(!e||(!actualParent()&&e.owner!=='child'))return;editing={...e};render()}
+document.addEventListener('change',ev=>{if(ev.target.id==='datePick'){selectedDate=ev.target.value;render()}});
+document.addEventListener('click',ev=>{let b=ev.target.closest('button');if(!b)return;let a=b.dataset.act;if(!a)return;
+if(a==='setup'){let p=el('setupPin').value;if(p!==el('setupConfirm').value){alert('PINs do not match.');return}if(!api.setPin('',p)){alert('Use a 6–12 digit PIN.');return}render();return}
+if(a==='parentLogin'){loginScreen=true;render();return}
+if(a==='cancelLogin'){loginScreen=false;render();return}
+if(a==='login'){let p=el('enteredPin').value;if(api.verifyPin(p)){parentUnlocked=true;window.__buddyParentUnlocked=true;data.profile='parent';tab='calendar';loginScreen=false;persist();render()}else el('loginError').textContent='Incorrect PIN or temporarily locked. '+(api.lockedForSeconds()?'Try again in '+api.lockedForSeconds()+' seconds.':'');return}
+if(a==='childMode'){parentUnlocked=false;window.__buddyParentUnlocked=false;data.profile='child';tab='day';persist();render();return}
+if(a==='tab'){tab=b.dataset.tab;editing=null;render();return}
+if(a==='task'){taskDone(b.dataset.r,+b.dataset.i);render();return}
+if(a==='goCalendar'){tab='calendar';render();return}
+if(a==='prev'||a==='next'){let d=new Date(selectedDate+'T12:00:00');d.setDate(d.getDate()+(a==='prev'?-1:1));selectedDate=localDate(d);render();return}
+if(a==='today'){selectedDate=localDate(new Date());render();return}
+if(a==='add'){editing={id:null,title:'',icon:'🎉',type:'once',date:selectedDate,time:'',weekday:new Date(selectedDate+'T12:00:00').getDay(),startDate:selectedDate,until:'',owner:actualParent()?'parent':'child',exceptions:[]};render();return}
+if(a==='edit'){edit(b.dataset.id);return}
+if(a==='cancel'){editing=null;render();return}
+if(a==='saveEvent'){saveEvent();return}
+if(a==='delete'&&actualParent()){let e=lookup(b.dataset.id);if(e&&confirm('Delete this activity?')){e.deleted=true;e.updatedAt=new Date().toISOString();persist();render()}return}
+if(a==='skip'){let e=lookup(b.dataset.id);if(!e||(!actualParent()&&e.owner!=='child'))return;if(confirm('Skip this date only?')){e.exceptions=e.exceptions||[];if(!e.exceptions.includes(selectedDate))e.exceptions.push(selectedDate);e.updatedAt=new Date().toISOString();persist();render()}return}
+if(a==='timer'){timerEnd=+b.dataset.min?Date.now()+Number(b.dataset.min)*60000:0;tick();return}
+if(a==='selectRoutine'){routine=b.dataset.r;render();return}
+if(a==='deleteTask'&&actualParent()){data.routines[routine].splice(+b.dataset.i,1);persist();render();return}
+if(a==='addTask'&&actualParent()){let t=el('taskTitle').value.trim();if(t){data.routines[routine].push([el('taskEmoji').value||'⭐',t]);persist();render()}return}
+if(a==='saveSleep'&&actualParent()){data.wake=el('wake').value;data.bed=el('bed').value;persist();alert('Saved');return}
+if(a==='changePin'&&actualParent()){let ok=api.setPin(el('oldPin').value,el('newPin').value);alert(ok?'PIN changed':'PIN change failed; use current PIN and 6–12 digits.');return}
+if(a==='exitDevice'&&actualParent()){api.exitToHome();return}
+});
+function tick(){let clock=el('clock');if(clock)clock.textContent=timeNow();let td=el('timerDisplay');if(td){if(!timerEnd)td.textContent='Ready!';else{let sec=Math.max(0,Math.ceil((timerEnd-Date.now())/1000));td.textContent=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');if(sec===0){timerEnd=0;alert('Timer finished! ⭐')}}}}
+setInterval(tick,1000);
+if(data.profile==='parent'){data.profile='child';persist()} // A restart never silently restores an unlocked parent session.
+render();
+})();
+</script></body></html>
