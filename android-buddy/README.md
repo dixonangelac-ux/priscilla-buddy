@@ -1,24 +1,27 @@
-# Priscilla's Buddy — Fire OS wrapper
-A small Android WebView wrapper for the existing GitHub Pages application.
+# Priscilla's Buddy — Android
+
+The Fire OS / Android application is built from local assets in `app/src/main/assets/`. It does not load the publicly hosted GitHub Pages demo. The GitHub Pages site remains an independent demo.
 
 ## Build
-Open the GitHub Actions tab, select **Build Buddy Android APK**, then choose **Run workflow**. Download the artifact named `priscilla-buddy-debug-apk` after the build succeeds. An Android Studio local build is also possible (Android Gradle Plugin 8.6.1; Gradle 8.7; JDK 17, Android SDK 35).
+The workflow at [Build Buddy Android APK](../../.github/workflows/build-buddy-apk.yml) generates a debug APK for development tests. The artifact is named `priscilla-buddy-debug-apk`.
 
-## Install (Windows)
-Extract the downloaded artifact ZIP, then run:
+## Installation for testing
+Download and extract the successful build's artifact ZIP; from your existing Windows ADB directory run:
 ```powershell
-.\adb.exe install -r "C:\path\to\app-debug.apk"
+.\adb.exe install -r "C:\platform-tools\app-debug.apk"
 ```
-If already installed from another signing key, reinstall only after exporting any Buddy data.
+Do not uninstall an older Android Buddy build with real data unless its data is backed up; Android app removal deletes app-private information and its encryption key.
+
+## First launch
+An adult must set a 6–12 digit PIN. Buddy opens in child mode by default. The child can add and edit one-time and weekly activities and skip individual repeating occurrences. Parent access is available from the bottom of the app; after entering the PIN the parent can edit routines and protected events, change PIN and settings, or exit to Android Home.
 
 ## Security and limits
-- Wrapper requests only Internet access.
-- Only HTTPS resources under `https://dixonangelac-ux.github.io/priscilla-buddy/` are accepted.
-- SSL errors are rejected, mixed content is forbidden, WebView debugging is disabled.
-- JavaScript and DOM storage are enabled because Buddy requires both.
-- This is fullscreen, **not tamper-proof kiosk mode**; Android system controls can still exit.
-- Buddy's current PIN is convenience-only; the web app's code is public and not a secure authentication boundary.
-- WebView storage is separate from Silk storage. Export from Silk and import in Buddy, or start fresh.
-- GitHub Actions produces a **debug-signed APK**, suitable for personal testing but not production distribution. Reproducible release builds should use a protected signing key and review/update dependencies.
-- GitHub Pages content may change without an APK update. Review app changes before deploying them, keep the GitHub account protected with MFA, and don't commit a child's private schedule.
-- Site requires connectivity on first load; offline behavior depends on WebView service-worker caching and should be tested, not assumed.
+See [SECURITY_AND_SYNC.md](SECURITY_AND_SYNC.md) for the detailed architecture and outstanding release gates.
+
+- Offline local Android build with encrypted local data and no Internet permission.
+- PIN is a local convenience/access control; it is **not** a replacement for Android's lock-screen credential, parental restrictions, or server account authentication.
+- Fullscreen immersive mode is **not** lock task mode or tamper-proof kiosk confinement. Android system UI can still be invoked.
+- Phone and tablet currently keep independent local data; **no sync is implemented yet**.
+- The parent PIN is provisioned per device. A true parent profile synchronized between devices needs a private backend, authentication and secure device enrollment.
+- Google Calendar integration has been designed but not yet connected.
+- Debug-signed APK is for testing. Production requires protected release signing, credentialed backend, permission tests, device management and a security review.
