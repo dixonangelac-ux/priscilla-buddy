@@ -8,8 +8,14 @@
 - Firebase's Spark quota is ample for a family-sized calendar; a quota overage can make the affected service unavailable until quota resets instead of billing you.
 - Google Calendar integration remains **off** until authenticated OAuth, access controls and secure token handling are built.
 
+## Project selected
+- Firebase project ID: `priscilla-buddy`
+- Android package name: `com.priscillabuddy.app`
+- Firebase console: https://console.firebase.google.com/project/priscilla-buddy/overview
+- Project binding is recorded in the repository's `.firebaserc`. This is not evidence that Firestore, Authentication, or Android registration have been configured.
+
 ## Create your project
-1. Go to https://console.firebase.google.com/ and choose **Add project**.
+1. Project already created: open https://console.firebase.google.com/project/priscilla-buddy/overview.
 2. Name it **Priscilla Buddy** (the project ID must be globally unique).
 3. Disable Google Analytics for this project unless you explicitly need it.
 4. Confirm **Spark** on the plan page. Do not attach billing.
