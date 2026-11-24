@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function loggedIn() { return request.auth != null; }
+    function membership(fid) {
+      return get(/databases/$(database)/documents/families/$(fid)/members/$(request.auth.uid));
+    }
+    function hasRole(fid, role) {
+      return loggedIn()
+        && membership(fid).data.active == true
+        && membership(fid).data.role == role;
+    }
+    function isAdult(fid) { return hasRole(fid, 'owner') || hasRole(fid, 'adult'); }
+    function isChild(fid) { return hasRole(fid, 'child'); }
+    function canViewEvent(fid) {
+      return isAdult(fid) || (isChild(fid) && resource.data.visibility == 'child');
+    }
+    function allowedEventFields() {
+      return request.resource.data.keys().hasOnly([
+        'title','emoji','kind','date','startDate','weekday','until',
+        'time','timeZone','exceptions','ownerUid','ownerRole','visibility',
+        'createdBy','createdAt','updatedAt','deleted'
+      ]);
+    }
+    function validEvent() {
+      return allowedEventFields()
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.emoji is string
+        && request.resource.data.emoji.size() <= 16
+        && request.resource.data.kind in ['once', 'weekly']
+        && request.resource.data.visibility in ['child','parent']
+        && request.resource.data.ownerRole in ['child','parent']
+        && request.resource.data.createdBy is string
+        && request.resource.data.ownerUid is string
+        && request.resource.data.timeZone is string
+        && request.resource.data.timeZone.size() <= 60
+        && request.resource.data.exceptions is list
+        && request.resource.data.exceptions.size() <= 100
+        && request.resource.data.deleted is bool
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.date is string
+        && request.resource.data.startDate is string
+        && request.resource.data.until is string
+        && request.resource.data.time is string
+        && request.resource.data.weekday is int
+        && request.resource.data.weekday >= 0
+        && request.resource.data.weekday <= 6;
+    }
+    function childCanCreate(fid) {
+      return isChild(fid)
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.ownerRole == 'child'
+        && request.resource.data.visibility == 'child';
+    }
+    function childCanUpdate(fid) {
+      return isChild(fid)
+        && resource.data.ownerUid == request.auth.uid
+        && resource.data.ownerRole == 'child'
+        && resource.data.visibility == 'child'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title','emoji','kind','date','startDate','weekday','until',
+          'time','timeZone','exceptions','updatedAt','deleted'
+        ]);
+    }
+    match /families/{familyId} {
+      allow read: if isAdult(familyId);
+      allow write: if false; // provision families through trusted admin operations
+      match /members/{userId} {
+        allow read: if loggedIn() && (userId == request.auth.uid || isAdult(familyId));
+        allow write: if false; // invitations/pairing require trusted backend
+      }
+      match /events/{eventId} {
+        allow get, list: if canViewEvent(familyId);
+        allow create: if validEvent()
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time
+          && (childCanCreate(familyId) || (
+            isAdult(familyId) && request.resource.data.createdBy == request.auth.uid
+          ));
+        allow update: if validEvent()
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time
+          && (isAdult(familyId) || childCanUpdate(familyId));
+        allow delete: if false; // soft deletion for offline change tracking
+      }
+      match /routines/{routineId} {
+        allow read: if isAdult(familyId) || isChild(familyId);
+        allow write: if isAdult(familyId);
+      }
+      match /progress/{progressId} {
+        allow read: if isAdult(familyId)
+          || (isChild(familyId) && resource.data.childUid == request.auth.uid);
+        allow create: if isAdult(familyId)
+          || (isChild(familyId) && request.resource.data.childUid == request.auth.uid);
+        allow update: if isAdult(familyId)
+          || (isChild(familyId)
+             && resource.data.childUid == request.auth.uid
+             && request.resource.data.childUid == resource.data.childUid);
+        allow delete: if false;
+      }
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
