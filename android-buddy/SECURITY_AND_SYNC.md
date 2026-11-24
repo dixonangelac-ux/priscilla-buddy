@@ -23,12 +23,12 @@
 - Parent PINs are **per installation** until authenticated account enrollment exists.
 - JSON import/export should be encrypted/password protected if added; do not publish plain backups of a minor's schedule.
 
-## Target architecture for private sync
+## Target architecture for private sync (Firebase Spark: Authentication + Cloud Firestore)
 1. Parent signs in using a provider with passkeys or MFA. Parent role is derived from authenticated server identity, never from a client-selected profile field.
 2. Parent creates a private family/workspace. The device enrolls via a short-lived parent-authorized pairing challenge; backend issues revocable scoped device credential. No shared or hardcoded PIN is used as a remote credential.
 3. Server validates every read/write against workspace membership, device role, record ownership and a server-side permissions table. Child may create and edit child-owned activities and may propose edits to locked events; adult can edit anything in the workspace.
-4. Local outbox stores UUID mutations with created_at, changed_at, revision, originating device, and idempotency key; sync uses authenticated HTTPS and server revision conflict detection. Offline edits are retried without duplicate event creation.
-5. Only calendar-appropriate events (not chores or rewards) can be explicitly selected for Google Calendar two-way synchronization. OAuth credentials stay on a confidential backend, never inside the APK. Use the minimum calendar scope, refresh tokens encrypted at rest and a single selected calendar. Preserve Google event IDs, recurring-instance IDs and sync tokens.
+4. Use Firestore's built-in Android offline persistence for pending writes; implement explicit conflict and recurrence-exception handling, with stable event IDs and idempotent mutations. Avoid introducing a second competing local sync engine.
+5. Use Firestore Security Rules to deny all access by default and enforce family membership, event ownership, and role scopes. Never trust a client-selected profile as an authorization role. Only calendar-appropriate events (not chores or rewards) can be explicitly selected for Google Calendar two-way synchronization. OAuth credentials stay on a confidential backend, never inside the APK. Use the minimum calendar scope, refresh tokens encrypted at rest and a single selected calendar. Preserve Google event IDs, recurring-instance IDs and sync tokens.
 6. A newly invited adult (for example another parent) gets a **distinct account and explicitly configured scoped permissions**, not access to the existing parent's identity or Google OAuth token.
 7. A lost child device can be revoked server-side. Local offline content still requires Android device lock and physical security; remote revocation cannot erase offline content until device reconnects.
 8. All sensitive endpoints should be rate-limited, audited and covered by permission tests. No public family dashboard, no unauthenticated reads, no device identity inferred from easily forged client claims.
@@ -62,3 +62,7 @@ Future fields: IANA time zone, duration, arbitrary RRULE, recurrence overrides, 
 - Implement and test private sync including offline merge conflicts and device revocation.
 - Perform Android kiosk exit/parent-control tests on actual Fire OS firmware.
 - Add optional Google Calendar adapter only after backend and event model are fully validated.
+
+
+## Selected backend — November 2026
+Firebase **Spark** is the agreed backend. See [Firebase setup and security rules](../firebase/README.md). A draft Supabase schema remains only as historical design work and is not active or deployed. No Firebase project or connected synchronization has yet been configured; do not use the offline-only APK as proof that device enrollment or private sync is operational.
