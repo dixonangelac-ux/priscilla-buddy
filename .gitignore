@@ -1,0 +1,12 @@
+# Local Firebase configuration and credentials
+**/google-services.json
+**/service-account*.json
+**/firebase-adminsdk*.json
+.env
+.env.*
+!.env.example
+**/local.properties
+**/.gradle/
+**/build/
+*.keystore
+*.jks
