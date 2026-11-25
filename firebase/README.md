@@ -24,6 +24,15 @@
 7. Create a **Cloud Firestore database** (Standard edition) in a US region and select production/locked rules.
 8. Do NOT publish development test rules that permit every signed-in user to read every family.
 
+## Android SDK integration (configured in GitHub)
+Firebase BoM, Authentication, Firestore and the Google Services Gradle plugin are now declared in `android-buddy/`. Project `priscilla-buddy` and package `com.priscillabuddy.app` were verified against the supplied Android configuration.
+
+The GitHub Actions build requires a repository Actions secret named `FIREBASE_GOOGLE_SERVICES_JSON`, containing the **entire text** of the downloaded `google-services.json`. Add it in repository **Settings → Secrets and variables → Actions → New repository secret**. Do not upload the JSON as a repository file, commit, or issue.
+
+The build writes the JSON into `android-buddy/app/google-services.json` only on its ephemeral CI runner. It validates project ID and package without logging the API key or full configuration. If the secret is missing, the new APK build fails intentionally rather than silently producing an unconfigured app.
+
+**Current limitation:** Gradle dependency wiring is present, but Firebase sign-in, family membership verification, device enrollment, secure cloud synchronization, and deployed rules are **not** functional yet. Keep the Firestore production lock-down rules active.
+
 ## Configuration safety
 - Firebase's `google-services.json` is an app configuration file rather than an administrator credential, but for this project keep it in your local development directory and do not commit it. The API key does NOT grant privileged database access; Firestore security rules and identity do.
 - Never put service account JSON, Google Calendar OAuth client secret, refresh tokens, or Firebase Admin SDK credentials into the APK, GitHub, or GitHub Actions logs.
