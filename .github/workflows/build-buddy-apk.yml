@@ -20,6 +20,24 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - name: Restore Firebase Android configuration from repository secret
+        env:
+          FIREBASE_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$FIREBASE_GOOGLE_SERVICES_JSON" ]; then
+            echo "::error::Missing FIREBASE_GOOGLE_SERVICES_JSON repository secret. Add your full google-services.json file to Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_GOOGLE_SERVICES_JSON" > android-buddy/app/google-services.json
+          python3 - <<'PY'
+          import json
+          path = 'android-buddy/app/google-services.json'
+          with open(path, encoding='utf-8') as f:
+              data = json.load(f)
+          assert data['project_info']['project_id'] == 'priscilla-buddy', 'Unexpected Firebase project'
+          assert any(c['client_info']['android_client_info']['package_name'] == 'com.priscillabuddy.app' for c in data['client']), 'Wrong Android package'
+          print('Firebase config validated (project and Android package only).')
+          PY
       - name: Assemble debug APK
         working-directory: android-buddy
         run: gradle --no-daemon assembleDebug
